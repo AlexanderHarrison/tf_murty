@@ -38,20 +38,11 @@ let augment_row [n] (costs: [n][n]f32) (row_dual: *[n]f32) (col_dual: [n]f32) (c
     let _ = trace pred
     let _ = trace mu
     let _ = trace d
-    let (sets, mu, exit_j) = if sets |> filter (==1) |> null then
-      let mu = filter_by (==0) sets d |> f32.minimum
-      let to_scan = filter_by (\d -> d == mu) d (iota n)
-      let (set_i, set_u) = map (\j -> (j, 1)) to_scan |> unzip
-      let sets = scatter sets set_i set_u
-      let unassigned = filter_by (==1) sets (iota n) |> filter (\j -> col_asgn[j] == -1)
-      let exit_j = if null unassigned 
-        then exit_j
-        else head unassigned
-      in (sets, mu, exit_j)
-    else (sets, mu, exit_j)
+    let (mu, js) = filter_by (==0) sets d |> minidx
+    let exit_j = if col_asgn[js] == -1 then js else exit_j
 
     let (sets, pred, mu, d, exit_j) = if exit_j == -1 then 
-      let js = filter_by (==1) sets (iota n) |> head
+      --let js = filter_by (==1) sets (iota n) |> head
       let i = col_asgn[js]
       let sets = sets with [js] = 2
       let offset = mu - col_dual[i]
