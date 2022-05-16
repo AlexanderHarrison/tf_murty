@@ -38,7 +38,7 @@ let augment_row [n] (costs: [n][n]f32) (row_dual: *[n]f32) (col_dual: [n]f32) (c
     let _ = trace pred
     let _ = trace mu
     let _ = trace d
-    let (sets, mu, d, exit_j) = if sets |> filter (==1) |> null then
+    let (sets, mu, exit_j) = if sets |> filter (==1) |> null then
       let mu = filter_by (==0) sets d |> f32.minimum
       let to_scan = filter_by (\d -> d == mu) d (iota n)
       let (set_i, set_u) = map (\j -> (j, 1)) to_scan |> unzip
@@ -47,8 +47,8 @@ let augment_row [n] (costs: [n][n]f32) (row_dual: *[n]f32) (col_dual: [n]f32) (c
       let exit_j = if null unassigned 
         then exit_j
         else head unassigned
-      in (sets, mu, d, exit_j)
-    else (sets, mu, d, exit_j)
+      in (sets, mu, exit_j)
+    else (sets, mu, exit_j)
 
     let (sets, pred, mu, d, exit_j) = if exit_j == -1 then 
       let js = filter_by (==1) sets (iota n) |> head
