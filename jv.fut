@@ -25,20 +25,20 @@ let filter_by [n] 'a 'b (f: b -> bool) (filterer: [n]b) (to_filter: [n]a) : []a 
   zip to_filter filterer |> filter (\(_,b) -> f(b)) |> map (\(a,_) -> a)
 
 let augment_row [n] (costs: [n][n]f32) (row_dual: *[n]f32) (col_dual: [n]f32) (col_asgn: *[n]i64) (row: i64) : (*[n]f32, *[n]i64) =
-  let cred = map2 (\cdu -> \row -> map2 (\du -> \ele -> ele - du - cdu) row_dual row) col_dual costs
-  let min_ele = f32.minimum (flatten cred)
-  let cred = map (map (\e -> e-min_ele)) cred
-  let t = map (\j -> let i = col_asgn[j] in if i == -1 then 0 else cred[i, j]) (iota n)
-  let shortest = map2 (-) cred[row] t
+  let cred = map2 (\cdu -> \row -> map2 (\ele -> \rdu -> ele - rdu - cdu) row row_dual) col_dual costs
+  let shortest = cred[row]
   let shortest_from = replicate n (-1)
   let found_best = replicate n false
   let (j_min, j) = minidx shortest
   let (shortest, shortest_from, j_min, j, _) = loop (shortest, shortest_from, j_min, j, found_best) while col_asgn[j] != -1 do
     let found_best = (copy found_best) with [j] = true
-    let t = map (\j -> let i = col_asgn[j] in if i == -1 then 0 else cred[i, j]) (iota n)
-    let shortest_from_j_asgn = map2 (\c -> \t -> c - t + j_min) cred[col_asgn[j]] t
-    let temp = map2 (\c -> \t -> c - t) cred[col_asgn[j]] t
-    let _ = trace temp
+    --let t = map (\j -> let i = col_asgn[j] in if i == -1 then 0 else cred[i, j]) (iota n)
+    --let shortest_from_j_asgn = map2 (\c -> \t -> c - t + j_min) cred[col_asgn[j]] t
+    --let temp = map2 (\c -> \t -> c - t) cred[col_asgn[j]] t
+    --let _ = trace temp
+    let next_row = col_asgn[j]
+    let cur_dist = d[j]
+    let shortest_from_j = map (+cur_dist) cred[new_row]
     let is_shorter = map2 (<) shortest_from_j_asgn shortest
     let shortest = map2 f32.min shortest_from_j_asgn shortest
 
