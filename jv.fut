@@ -28,12 +28,8 @@ let take_indices [n] 'a (idxs: [n]bool) (xs: [n]a) : []a =
 let filter_by [n] 'a 'b (f: b -> bool) (filterer: [n]b) (to_filter: [n]a) : []a =
   zip to_filter filterer |> filter (\(_,b) -> f(b)) |> map (\(a,_) -> a)
 
-let augment_row [n] (costs: [n][n]f32) (row_dual: *[n]f32) (col_dual: [n]f32) (col_asgn: *[n]i64) (row: i64) : (*[n]f32, *[n]i64, *[n]i64) =
+let augment_row [n] (costs: [n][n]f32) (row_dual: *[n]f32) (col_dual: [n]f32) (col_asgn: *[n]i64) (row_asgn: *[n]i64) (row: i64) : (*[n]f32, *[n]i64, *[n]i64) =
   let cred = map2 (\cdu -> \row -> map2 (\ele -> \rdu -> ele - rdu - cdu) row row_dual) col_dual costs
-  --let cred = map (\row -> map2 (\ele -> \rdu -> ele - rdu) row row_dual) costs
-  let _ = trace cred
-let row_asgn = other_asgn col_asgn
-let _ = trace (map2 (\row -> \a -> let m = f32.minimum row in a == -1 || row[a] == m) cred row_asgn)
   let shortest = replicate n f32.inf
   let shortest_from = replicate n (-1)
   let todo = replicate n true
@@ -55,11 +51,10 @@ let _ = trace (map2 (\row -> \a -> let m = f32.minimum row in a == -1 || row[a] 
 
       in (shortest, shortest_from, i, todo, min, sink)
 
-    let row_dual = map3 (\du -> \s -> \f -> if f then du else du - min + s) row_dual shortest todo
+  let row_dual = map3 (\du -> \s -> \f -> if f then du else du - min + s) row_dual shortest todo
   
   let j = sink
   let i = shortest_from[j]
-  let row_asgn = other_asgn col_asgn
   let col_asgn = col_asgn with [j] = i
   let temp = row_asgn[i]
   let row_asgn = row_asgn with [i] = j
@@ -79,11 +74,10 @@ entry main [n] (costs: *[n][n]f32) : f32 =
   let (row_dual, row_asgn) = col_reduce costs
   let col_dual = row_reduce costs row_dual
   let col_asgn = other_asgn row_asgn
-  let _ = trace col_asgn
   let (_, _, row_asgn, _) = loop (row_dual, col_dual, row_asgn, col_asgn) while 
     row_asgn |> any (\asgn -> asgn == -1) do
       let row = zip (iota n) row_asgn |> map (\(i, asgn) -> if asgn == -1 then i else -1) |> i64.maximum
-      let (row_dual, col_asgn, row_asgn) = augment_row costs row_dual col_dual col_asgn row
+      let (row_dual, col_asgn, row_asgn) = augment_row costs row_dual col_dual col_asgn row_asgn row
       let col_dual = row_reduce costs row_dual
 
       in (row_dual, col_dual, row_asgn, col_asgn)
