@@ -28,109 +28,51 @@ let take_indices [n] 'a (idxs: [n]bool) (xs: [n]a) : []a =
 let filter_by [n] 'a 'b (f: b -> bool) (filterer: [n]b) (to_filter: [n]a) : []a =
   zip to_filter filterer |> filter (\(_,b) -> f(b)) |> map (\(a,_) -> a)
 
-let augment_row [n] (costs: [n][n]f32) (row_dual: *[n]f32) (col_dual: [n]f32) (col_asgn: *[n]i64) (row: i64) : (*[n]f32, *[n]i64) =
+let augment_row [n] (costs: [n][n]f32) (row_dual: *[n]f32) (col_dual: [n]f32) (col_asgn: *[n]i64) (row: i64) : (*[n]f32, *[n]i64, *[n]i64) =
   let cred = map2 (\cdu -> \row -> map2 (\ele -> \rdu -> ele - rdu - cdu) row row_dual) col_dual costs
   --let cred = map (\row -> map2 (\ele -> \rdu -> ele - rdu) row row_dual) costs
   let _ = trace cred
 let row_asgn = other_asgn col_asgn
 let _ = trace (map2 (\row -> \a -> let m = f32.minimum row in a == -1 || row[a] == m) cred row_asgn)
-  let shortest = cred[row]
+  let shortest = replicate n f32.inf
   let shortest_from = replicate n (-1)
-  let found_best = replicate n false
-  let (_, j) = trace (minidx shortest)
-  let (_, shortest_from, j, found_best) = loop (shortest, shortest_from, j, found_best) while col_asgn[j] != -1 do
-    let found_best = (copy found_best) with [j] = true
-    let next_row = col_asgn[j]
-    let mu = shortest[j]
-    let shortest_from_j_asgn = map (+mu) cred[next_row]
-    let is_shorter = map2 (<) shortest_from_j_asgn shortest
+  let todo = replicate n true
+  let i = row
+  let sink = -1
+  let min = 0.0
+  let (shortest, shortest_from, _, todo, min, sink) = 
+    loop (shortest, shortest_from, i, todo, min, sink) while sink == -1 do
+      let dist_from_i = map (+min) cred[i]
+      let is_shorter = map2 (<) dist_from_i shortest
+      let shortest = map2 f32.min dist_from_i shortest
+      let (s_i, s_u) = filter_by id (map2 (&&) is_shorter todo) (zip (iota n) (replicate n i)) |> unzip
+      let shortest_from = scatter shortest_from s_i s_u
 
-    let shortest = map2 f32.min shortest_from_j_asgn shortest
-    let (s_i, s_u) = filter_by id is_shorter (zip (iota n) (replicate n j)) |> unzip
-    let shortest_from = scatter shortest_from s_i s_u
-    let (_, j) = minidx (map2 (\s -> \f -> if f then f32.inf else s) shortest found_best)
-    in (shortest, shortest_from, j, found_best)
+      let (min, j) = minidx (map2 (\s -> \f -> if f then s else f32.inf) shortest todo)
+      let todo = todo with [j] = false
+      let asgn = col_asgn[j]
+      let (sink, i) = if asgn == -1 then (j, i) else (sink, asgn)
+
+      in (shortest, shortest_from, i, todo, min, sink)
+
+    let row_dual = map3 (\du -> \s -> \f -> if f then du else du - min + s) row_dual shortest todo
   
-  let mu = cred[row, j]
+  let j = sink
+  let i = shortest_from[j]
+  let row_asgn = other_asgn col_asgn
+  let col_asgn = col_asgn with [j] = i
+  let temp = row_asgn[i]
+  let row_asgn = row_asgn with [i] = j
+  let j = temp
+  let (col_asgn, row_asgn, _, _) = loop (col_asgn, row_asgn, j, i) while i != row do
+    let i = shortest_from[j]
+    let col_asgn = col_asgn with [j] = i
+    let temp = row_asgn[i]
+    let row_asgn = row_asgn with [i] = j
+    let j = temp
+    in (col_asgn, row_asgn, j, i)
 
-  let from = shortest_from[j]
-  let (col_asgn, row_dual, _, j) = loop (col_asgn, row_dual, from, j) while from != -1 do
-    let new_asgn_row = col_asgn[from]
-    let col_asgn = col_asgn with [j] = new_asgn_row
-    let j = from
-    let from = shortest_from[j]
-    in (col_asgn, row_dual, from, j)
-
-  let col_asgn = col_asgn with [j] = row
-  
-  --let offset = map2 (\d -> \asgn -> if asgn == -1 then 0 else (f32.max (d - mu) 0)) row_dual col_asgn
-  --let offset = map2 (\d -> \asgn -> if asgn == -1 then 0 else d - mu) row_dual col_asgn
-  --let offset = map2 (\d -> \f -> if f then d - mu else 0) row_dual found_best
-let row_asgn = other_asgn col_asgn
-let _ = trace (map2 (\row -> \a -> let m = f32.minimum row in a == -1 || row[a] == m) cred row_asgn)
-  let offset = map2 (\d -> \f -> if f then (f32.max (d - mu) 0) else 0) row_dual found_best
-  let row_dual = map2 (+) row_dual offset
-
-  let _ = trace col_asgn
-  in (row_dual, col_asgn)
-
--- returns new row_dual, col_asgn
---let augment_row [n] (costs: [n][n]f32) (row_dual: *[n]f32) (col_dual: [n]f32) (col_asgn: *[n]i64) (row: i64) : (*[n]f32, *[n]i64) =
---  let pred = replicate n row
---  let d = map2 (\c -> \du -> c - du - col_dual[row]) costs[row] row_dual
---  -- TODO is 0, SCAN is 1, READY is 2 
---  let sets = replicate n 0i64
---  let mu = -1.0
---  let exit_j = -1
---    let _ = trace ([]: []f32)
---  let (sets, pred, mu, d, exit_j) = loop (sets, pred, mu, d, exit_j) while exit_j == -1 do
---    let _ = trace d
---    let (mu, js) = filter_by (==0) sets d |> minidx
---    let _ = trace js
---    let exit_j = if col_asgn[js] == -1 then js else exit_j
---
---    let (sets, pred, mu, d, exit_j) = if exit_j == -1 then 
---      let i = col_asgn[js]
---      let sets = sets with [js] = 2
---      let offset = mu - col_dual[i]
---      let vals = map2 (\c -> \du -> offset + c - du) costs[i] row_dual
---      let smaller = map2 (\d -> \v -> v < d) d vals
---      let take = map2 (&&) smaller (map (==0) sets)
---        
---      let jt = filter_by id take (iota n)
---      let d_update = map (\j -> vals[j]) jt
---      let d = scatter d jt d_update
---      let (pred_i, pred_u) = map (\j -> (j, i)) jt |> unzip
---      let pred = scatter pred pred_i pred_u
---      
---      let cred_0 = filter_by id take (iota n) |> filter (\j -> vals[j] == mu)
---      let exit_js = cred_0 |> filter (\j -> col_asgn[j] == -1)
---      let exit_j = if null exit_js 
---        then exit_j
---        else head exit_js
---
---      let (sets_i, sets_u) = map (\j -> (j, 1)) cred_0 |> unzip
---      let sets = scatter sets sets_i sets_u
---
---      in (sets, pred, mu, d, exit_j)
---    else (sets, pred, mu, d, exit_j)
---
---    in (sets, pred, mu, d, exit_j)
---
---  let offset = map2 (\d -> \s -> if s == 2 then d - mu else 0) d sets
---  let row_dual = map2 (+) row_dual offset
---  
---  let row_asgn = other_asgn col_asgn
---  let j = exit_j
---  let i = -1
---  let (col_asgn, _, _, _) = loop (col_asgn, row_asgn, j, i) while i != row do 
---    let i = pred[j]
---    let col_asgn = col_asgn with [j] = i
---    let k = j
---    let j = row_asgn[i]
---    let row_asgn = row_asgn with [i] = k
---    in (col_asgn, row_asgn, j, i)
---  in (row_dual, col_asgn)
+  in (row_dual, col_asgn, row_asgn)
 
 --entry main [n] (costs: *[n][n]f32) : *[n]i64 =
 entry main [n] (costs: *[n][n]f32) : f32 =
@@ -141,10 +83,10 @@ entry main [n] (costs: *[n][n]f32) : f32 =
   let (_, _, row_asgn, _) = loop (row_dual, col_dual, row_asgn, col_asgn) while 
     row_asgn |> any (\asgn -> asgn == -1) do
       let row = zip (iota n) row_asgn |> map (\(i, asgn) -> if asgn == -1 then i else -1) |> i64.maximum
-      let (row_dual, col_asgn) = augment_row costs row_dual col_dual col_asgn row
+      let (row_dual, col_asgn, row_asgn) = augment_row costs row_dual col_dual col_asgn row
       let col_dual = row_reduce costs row_dual
 
-      in (row_dual, col_dual, other_asgn col_asgn, col_asgn)
+      in (row_dual, col_dual, row_asgn, col_asgn)
 
   --in row_asgn
   in map2 (\i -> \row -> row[i]) row_asgn costs |> f32.sum
