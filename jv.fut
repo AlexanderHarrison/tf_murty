@@ -28,7 +28,14 @@ let take_indices [n] 'a (idxs: [n]bool) (xs: [n]a) : []a =
 let filter_by [n] 'a 'b (f: b -> bool) (filterer: [n]b) (to_filter: [n]a) : []a =
   zip to_filter filterer |> filter (\(_,b) -> f(b)) |> map (\(a,_) -> a)
 
-let augment_row [n] (costs: [n][n]f32) (row_dual: *[n]f32) (col_dual: [n]f32) (col_asgn: *[n]i64) (row_asgn: *[n]i64) (row: i64) : (*[n]f32, *[n]i64, *[n]i64) =
+let augment_row [n] 
+(costs: [n][n]f32) 
+(row_dual: *[n]f32) 
+(col_dual: [n]f32) 
+(col_asgn: *[n]i64) 
+(row_asgn: *[n]i64) 
+(row: i64) 
+: (*[n]f32, *[n]i64, *[n]i64) = -- returns (row dual, col_asgn, row_asgn)
   let cred = map2 (\cdu -> \row -> map2 (\ele -> \rdu -> ele - rdu - cdu) row row_dual) col_dual costs
   let shortest = replicate n f32.inf
   let shortest_from = replicate n (-1)
