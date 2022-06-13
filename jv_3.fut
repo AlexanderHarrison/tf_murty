@@ -48,18 +48,20 @@ let augment_row [n][m]
   
   let pathback = replicate m row --map (\nsc -> if nsc then row else -1) new_shortest_cols
   
-  let shortest_path = 0.0
+  let shortest_path = f32.inf
   let (shortest_path, col) = minidx (dist_to_col ++ [shortest_path])
   let col = if col == m then -1 else col
   let unused_cols = replicate m true
 
-  let minmissval = 0.0
+  let minmissval = f32.inf
   let minmissi = row
   let i = row --- ???
 
+  let _ = trace (pathback, dist_to_col, col, minmissval, minmissi, row_dual, i)
+
   let (pathback, dist_to_col, shortest_path, unused_cols, col, _, minmissi, row_dual, i) = 
     loop (pathback, dist_to_col, shortest_path, unused_cols, col, minmissval, minmissi, row_dual, i)
-    while shortest_path < 0.0 && col != -1 && col_asgn[col] != -1 do
+    while col != -1 && col_asgn[col] != -1 do
       let i = col_asgn[col]
       let prev = row_dual[col]
       let row_dual = row_dual with [col] = prev + shortest_path
@@ -85,14 +87,12 @@ let augment_row [n][m]
 
   let i = if col != -1 && col_asgn[col] == -1 then col_asgn[col] else i
 
-  --let _ = trace (pathback, dist_to_col, shortest_path, unused_cols, col, minmissi, row_dual)
-
   let prev = row_asgn[minmissi]
   let (i, col, row_asgn) = if col == -1 
     then (minmissi, prev, row_asgn with [minmissi] = -1)
     else (i, col, row_asgn)
 
-  let _ = trace (i, col, row_asgn)
+  --let _ = trace (i, col, row_asgn)
 
   let (_, col_asgn, row_asgn, _) = loop (col, col_asgn, row_asgn, i) while i != row do
     let i = pathback[col]
@@ -116,7 +116,6 @@ let jv [n][m] (costs: [n][m]f32) : [n]i64 =
   let row_dual = replicate m 0.0 -- maybe?
   let col_dual = replicate n 0.0
   let unassigned = filter_by (== -1) (copy row_asgn) (iota n)
-          let _ = trace 0
           --let cred = map2 (\cdu -> \row -> map2 (\ele -> \rdu -> ele - rdu - cdu) row row_dual) col_dual costs
           --let mins = map f32.minimum cred
           --let _ = trace ( map3 (\row -> \j -> \m -> j == -1 || row[j] == m) cred row_asgn mins |> all id)
@@ -134,7 +133,7 @@ let jv [n][m] (costs: [n][m]f32) : [n]i64 =
   in row_asgn
 
 let score [n][m] (costs: [n][m]f32) (row_asgn: [n]i64) : f32 =
-  map2 (\j -> \row -> if j == -1 then 0.0 else row[j]) row_asgn costs |> f32.sum
+  map2 (\j -> \row -> if j == -1 then 0.0 else row[j]) (trace row_asgn) costs |> f32.sum
 
 entry main [n][m]
 (costs: [n][m]f32) 

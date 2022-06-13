@@ -75,9 +75,10 @@ let augment_row [n]
     in (col_asgn, row_asgn, j, i)
 
   in (row_dual, col_asgn, row_asgn)
+-- : (*[n]f32, *[n]i64, *[n]i64) = -- returns (row dual, col_asgn, row_asgn)
 
 --entry main [n] (costs: *[n][n]f32) : *[n]i64 =
-entry main [n] (costs: *[n][n]f32) : f32 =
+let jv [n] (costs: *[n][n]f32) : *[n]i64 = -- returns row assignments
   let (row_dual, row_asgn) = col_reduce costs
   let col_dual = row_reduce costs row_dual
   let col_asgn = other_asgn row_asgn
@@ -89,5 +90,19 @@ entry main [n] (costs: *[n][n]f32) : f32 =
 
       in (row_dual, col_dual, row_asgn, col_asgn)
 
-  --in row_asgn
-  in map2 (\i -> \row -> row[i]) row_asgn costs |> f32.sum
+  in row_asgn
+  --in map2 (\i -> \row -> row[i]) row_asgn costs |> f32.sum
+
+--entry main [n] (costs: *[n][n]f32) (k: i64) : (f32, f32) = 
+entry main [n] (costs: *[n][n]f32) : (f32, f32) = 
+  --let initial_row_asgn = jv (copy costs)
+  --let ms = replicate n costs 
+  --  |> map3 (\j -> \i -> \c -> (copy c) with [i, j] = f32.inf) initial_row_asgn (iota n)
+  --let row_asgns = map (\c -> jv (copy c)) ms
+  --let first = map2 (\row -> \j -> row[j]) costs initial_row_asgn |> f32.sum
+  --let second = map (\r_asgn -> map2 (\row -> \j -> row[j]) costs r_asgn |> f32.sum) row_asgns |> f32.minimum
+  --in (first, second)
+  --let costs = map (\row -> row ++ replicate n 0) costs -- turn to may not assign problem
+  --let row_asgn = 
+
+  
