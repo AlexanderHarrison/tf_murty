@@ -49,8 +49,7 @@ let augment_row [n][m]
   let pathback = replicate m row --map (\nsc -> if nsc then row else -1) new_shortest_cols
   
   let shortest_path = f32.inf
-  let (shortest_path, col) = minidx (dist_to_col ++ [shortest_path])
-  let col = if col == m then -1 else col
+  let (shortest_path, col) = minidx dist_to_col
   let unused_cols = replicate m true
 
   let minmissval = f32.inf
@@ -79,9 +78,7 @@ let augment_row [n][m]
       let dist_to_col = scatter dist_to_col d_js new_dists
 
       let (shortest_path, col) = minidx (
-        (map2 (\un -> \d -> if un then d else f32.inf) unused_cols dist_to_col)
-        ++ [minmissval])
-      let col = if col == m then -1 else col
+        (map2 (\un -> \d -> if un then d else f32.inf) unused_cols dist_to_col))
   
       in (pathback, dist_to_col, shortest_path, unused_cols, col, minmissval, minmissi, row_dual, i)
 
