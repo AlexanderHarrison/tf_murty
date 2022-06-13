@@ -48,7 +48,6 @@ let augment_row [n][m]
   
   let pathback = replicate m row --map (\nsc -> if nsc then row else -1) new_shortest_cols
   
-  let shortest_path = f32.inf
   let (shortest_path, col) = minidx dist_to_col
   let unused_cols = replicate m true
 
@@ -141,5 +140,4 @@ entry main [n][m]
   --let initial_row_asgn = jv costs
   --let initial_score = score costs initial_row_asgn
   --let best_scores = [initial_score]
-
 
