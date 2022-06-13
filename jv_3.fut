@@ -131,13 +131,12 @@ let jv [n][m] (costs: [n][m]f32) : [n]i64 =
 let score [n][m] (costs: [n][m]f32) (row_asgn: [n]i64) : f32 =
   map2 (\j -> \row -> if j == -1 then 0.0 else row[j]) (trace row_asgn) costs |> f32.sum
 
+let augment_matrix [n][m][r] (costs: [n][m]f32) : [n][r]f32 =
+  let r = n+m
+  in map2 (\row -> \i -> concat_to r row (replicate n f32.inf with [i] = 0)) costs (iota n)
+
 entry main [n][m]
 (costs: [n][m]f32) 
 : f32 = 
-  jv costs |> score costs
---(k: i64)
---: ([]f32) = -- returns top k scores
-  --let initial_row_asgn = jv costs
-  --let initial_score = score costs initial_row_asgn
-  --let best_scores = [initial_score]
-
+  let augmented = augment_matrix costs
+  in jv augmented |> score augmented
