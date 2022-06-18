@@ -37,27 +37,21 @@ let filter_by [n] 'a 'b (f: b -> bool) (filterer: [n]b) (to_filter: [n]a) : []a 
 let augment_row [n][m]
 (costs: [n][m]f32) 
 (row_dual: *[m]f32) 
-(_col_dual: [n]f32) 
 (col_asgn: *[m]i64) 
 (row_asgn: *[n]i64) 
 (row: i64) 
 : (*[m]f32, *[m]i64, *[n]i64) = -- returns (row dual, col_asgn, row_asgn)
   let dist_to_col = map2 (-) costs[row] row_dual
-
-  --let _ = trace (row_dual, col_asgn, row_asgn, row)
-  
-  let pathback = replicate m row --map (\nsc -> if nsc then row else -1) new_shortest_cols
+  let pathback = replicate m row
   
   let (shortest_path, col) = minidx dist_to_col
   let unused_cols = replicate m true
 
   let minmissval = f32.inf
   let minmissi = row
-  let i = row --- ???
+  let i = row
 
-  let _ = trace (pathback, dist_to_col, col, minmissval, minmissi, row_dual, i)
-
-  let (pathback, dist_to_col, shortest_path, unused_cols, col, _, minmissi, row_dual, i) = 
+  let (pathback, _, shortest_path, unused_cols, col, _, minmissi, row_dual, i) = 
     loop (pathback, dist_to_col, shortest_path, unused_cols, col, minmissval, minmissi, row_dual, i)
     while col != -1 && col_asgn[col] != -1 do
       let i = col_asgn[col]
@@ -88,8 +82,6 @@ let augment_row [n][m]
     then (minmissi, prev, row_asgn with [minmissi] = -1)
     else (i, col, row_asgn)
 
-  --let _ = trace (i, col, row_asgn)
-
   let (_, col_asgn, row_asgn, _) = loop (col, col_asgn, row_asgn, i) while i != row do
     let i = pathback[col]
     let col_asgn = col_asgn with [col] = i
@@ -104,39 +96,45 @@ let augment_row [n][m]
 
 
 let jv [n][m] (costs: [n][m]f32) : [n]i64 =
---entry main [n][m] (costs: *[n][m]f32) (asgn_row_cost: *[m]f32) (asgn_col_cost: *[n]f32) : f32 =
---  let costs = map2 (\row -> \a -> map2 (\r -> \b -> r - a - b) row asgn_row_cost) costs asgn_col_cost
   let (_col_dual, col_asgn) = row_reduce costs 
-  --let (row_dual) = col_reduce costs col_dual
   let row_asgn = other_asgn col_asgn
   let row_dual = replicate m 0.0 -- maybe?
-  let col_dual = replicate n 0.0
   let unassigned = filter_by (== -1) (copy row_asgn) (iota n)
-          --let cred = map2 (\cdu -> \row -> map2 (\ele -> \rdu -> ele - rdu - cdu) row row_dual) col_dual costs
-          --let mins = map f32.minimum cred
-          --let _ = trace ( map3 (\row -> \j -> \m -> j == -1 || row[j] == m) cred row_asgn mins |> all id)
-  let (_, _, row_asgn, _) = loop (row_dual, col_dual, row_asgn, col_asgn) for row in unassigned do
-      --let row = zip (iota n) row_asgn |> map (\(i, asgn) -> if asgn == -1 then i else -1) |> i64.maximum
-      let (row_dual, col_asgn, row_asgn) = augment_row costs row_dual col_dual col_asgn row_asgn row
-      let col_dual = col_dual_by_reduce costs row_dual
-          --let _ = trace row_asgn
-          --let cred = map2 (\cdu -> \row -> map2 (\ele -> \rdu -> ele - rdu - cdu) row row_dual) col_dual costs
-          --let mins = map f32.minimum cred
-          --let _ = trace ( map3 (\row -> \j -> \m -> j == -1 || row[j] == m) cred row_asgn mins |> all id)
-      in (row_dual, col_dual, row_asgn, col_asgn)
+  let (_, row_asgn, _) = loop (row_dual, row_asgn, col_asgn) for row in unassigned do
+      let (row_dual, col_asgn, row_asgn) = augment_row costs row_dual col_asgn row_asgn row
+      in (row_dual, row_asgn, col_asgn)
 
-  --in map2 (\i -> \row -> if i == -1 then 0.0 else row[i]) row_asgn costs |> f32.sum
   in row_asgn
 
 let score [n][m] (costs: [n][m]f32) (row_asgn: [n]i64) : f32 =
   map2 (\j -> \row -> if j == -1 then 0.0 else row[j]) (trace row_asgn) costs |> f32.sum
 
-let augment_matrix [n][m][r] (costs: [n][m]f32) : [n][r]f32 =
-  let r = n+m
-  in map2 (\row -> \i -> concat_to r row (replicate n f32.inf with [i] = 0)) costs (iota n)
+--let gen_murty_costs [n][m] (costs: [n][m]f32) (row_asgn: [n]i64) : *[n][n][m]f32 =
+--  map (\i -> copy costs with costs[i, row_asgn[i]] = f32.inf) (iota n)
+--
+--let murty [n][m] (costs: [n][m]f32) (k: i64) : [k]f32 =
+--  let (least_row_asgn, row_dual) = jv costs
+--  let least_row_asgns = replicate k (replicate n 0) with [0] = least_row_asgn -- dummy data for i>0
+--  let least_costs = replicate k f32.inf with [0] = score row_asgn
+--    let (least_costs, least_row_asgns) = loop _ for i < (k-1) do
+--      let costs_to_check gen_murty_costs least_costs[i] least_row_asgn
+--      let row_asgns_to_check = iota n |> map (\j -> copy least_row_asgns with [j] = -1)
+--      zip3 costs_to_check row_asgns_to_check (iota n)
+--        |> map (\c -> \r_a -> \j -> augment_row c (copy row_dual) (other_asgn r_a) r_a j)
+--        |>
+
+--let augment_row [n][m]
+--(costs: [n][m]f32) 
+--(row_dual: *[m]f32) 
+--(col_asgn: *[m]i64) 
+--(row_asgn: *[n]i64) 
+--(row: i64) 
+--: (*[m]f32, *[m]i64, *[n]i64) = -- returns (row dual, col_asgn, row_asgn)
 
 entry main [n][m]
 (costs: [n][m]f32) 
 : f32 = 
-  let augmented = augment_matrix costs
-  in jv augmented |> score augmented
+  let r = n+m
+  let augmented_costs: [n][r]f32 = map2 (\row -> \i -> concat_to r row (replicate n f32.inf with [i] = 0)) costs (iota n)
+  let row_asgn = jv augmented_costs
+  in score augmented_costs row_asgn
