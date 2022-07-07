@@ -15,7 +15,14 @@ if [ "$1" != "skip_fut" ]; then
     futhark cuda --library murty.fut
     mv murty.c murtygpu.c
     mv murty.h murtygpu.h
+
+    # Hacks to prevent name collision
+    sed -i 's/futhark/gpu_futhark/g' murtygpu.c 
+    sed -i 's/futhark/gpu_futhark/g' murtygpu.h
+    sed -i 's/futhark/cpu_futhark/g' murtycpu.c
+    sed -i 's/futhark/cpu_futhark/g' murtycpu.h
 fi
 
 rm libmurtyop.so
-gcc -O2 -Wl,--copy-dt-needed-entries,--no-as-needed -lcuda -lcudart -lnvrtc -shared -fPIC -o "libmurtyop.so" -I/usr/include/tensorflow/ -L/opt/cuda/targets/x86_64-linux/lib/ ./manual_op/kernels/murtycpu.cc ./manual_op/kernels/murtygpu.cc ./manual_op/kernels/murty.cc murtycpu.c ${TF_CFLAGS[@]} ${TF_LFLAGS[@]}
+
+gcc -O3 -lcuda -lcudart -lnvrtc -shared -fPIC -flto -o "libmurtyop.so" -I/usr/include/tensorflow/ -L/opt/cuda/targets/x86_64-linux/lib/ murtygpu.c murtycpu.c murtyop.cc ${TF_CFLAGS[@]} ${TF_LFLAGS[@]}

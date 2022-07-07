@@ -1,5 +1,5 @@
-#ifndef Murty_H_
-#define Murty_H_
+#ifndef Murtyop_H_
+#define Murtyop_H_
 
 #include <unsupported/Eigen/CXX11/Tensor>
 
