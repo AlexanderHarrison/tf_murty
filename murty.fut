@@ -45,7 +45,7 @@ let augment_row [n][m]
 : (*[m]f32, *[m]i64, *[n]i64) = -- returns (row dual, col_asgn, row_asgn)
   let err = map (\row -> map2 (-) row row_dual) costs
     |> map2 (\r_a -> \row -> r_a == -1 || let (_, c) = minidx row in c == r_a) row_asgn 
-    |> any (!) 
+    |> any not
 
   let _ = if err then 
     trace costs else costs
