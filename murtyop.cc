@@ -3,8 +3,8 @@
 #include <tensorflow/core/framework/shape_inference.h>
 #include "unsupported/Eigen/CXX11/src/Tensor/TensorForwardDeclarations.h"
 
-#include "../../murtygpu.h"
-#include "../../murtycpu.h"
+#include "murtygpu.h"
+#include "murtycpu.h"
 
 #include "murtyop.h"
 
