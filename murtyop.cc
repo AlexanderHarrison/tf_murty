@@ -83,8 +83,8 @@ class MurtyOp : public OpKernel {
   }
 };
 
-REGISTER_KERNEL_BUILDER( Name("Murty").Device(DEVICE_CPU), MurtyOp<Eigen::ThreadPoolDevice>); 
-REGISTER_KERNEL_BUILDER( Name("Murty").Device(DEVICE_GPU), MurtyOp<Eigen::GpuDevice>);
+REGISTER_KERNEL_BUILDER( Name("Murty").Device(DEVICE_CPU).HostMemory("k"), MurtyOp<Eigen::ThreadPoolDevice>); 
+REGISTER_KERNEL_BUILDER( Name("Murty").Device(DEVICE_GPU).HostMemory("k"), MurtyOp<Eigen::GpuDevice>);
 }
 }
 

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 export CUDA_HOME="/opt/cuda/"
-export CPATH="/opt/cuda/targets/x86_64-linux/include/" 
+export CPATH="$CUDA_HOME/targets/x86_64-linux/include/" 
 export LIBRARY_PATH="-L/opt/cuda/targets/x86_64-linux/lib/" 
 export LD_LIBRARY_PATH="-L/opt/cuda/targets/x86_64-linux/lib/" 
 

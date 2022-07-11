@@ -14,3 +14,4 @@ Usage requires python, tensorflow, numpy, etc.
     - Reduce/save allocations in tf wrapper
     - Make sure tf fuses gpu wrapper
     - Profile gpu version -> micro optimizations
+    - Use built-in tensorflow allocators rather than futhark's default malloc calls
