@@ -15,3 +15,4 @@ Nvidia GPU not required (contains cpu backup).
     - Make sure tf fuses gpu wrapper
     - Profile gpu version -> micro optimizations
     - Use PGO for PTX and/or futhark compilation 
+    - (?) Allow multiple matrices to be solved in parallel

@@ -127,7 +127,7 @@ let gen_murty_costs [n][m] (costs: [n][m]f32) (row_asgn: [n]i64) : *[n][n][m]f32
     ) (iota n) row_asgn costs
     ) (iota n)
 
-let murty [n][m] (costs: [n][m]f32) (k: i64) : [k]f32 =
+let murty [n][m] (costs: [n][m]f32) (k: i64) : [k][n]i64 =
   let (least_row_asgn, row_dual) = jv costs
 
   let filler = replicate (k-1) (
@@ -140,7 +140,7 @@ let murty [n][m] (costs: [n][m]f32) (k: i64) : [k]f32 =
     concat_to k [(row_dual, costs, least_row_asgn)] filler
     |> unzip3
 
-  let (_, least_costs, least_row_asgns) = loop (least_row_duals, least_costs, least_row_asgns) for i < (k-1) do
+  let (_, _, least_row_asgns) = loop (least_row_duals, least_costs, least_row_asgns) for i < (k-1) do
     let least_row_dual = least_row_duals[i]
     let least_cost = least_costs[i]
     let least_row_asgn = least_row_asgns[i]
@@ -155,14 +155,10 @@ let murty [n][m] (costs: [n][m]f32) (k: i64) : [k]f32 =
       |> take k |> unzip3
 
     in (least_row_duals, least_costs, least_row_asgns)
-  in map2 score least_costs least_row_asgns
+  in least_row_asgns
 
---entry main [l][n][m] (costs: [l][n][m]f32) (k: i64) : [l][k]f32 = 
---  let r = n+m
---  let augmented_costs: [l][n][r]f32 = map (map2 (\i -> \row -> concat_to r row (replicate n f32.inf with [i] = 0)) (iota n)) costs
---  in map (\c -> murty c k) augmented_costs
-
-entry main [n][m] (costs: [n][m]f32) (k: i64) : [k]f32 = 
+entry main [n][m] (costs: [n][m]f32) (k: i64) : [k][n]i64 = 
   let r = n+m
   let augmented_costs: [n][r]f32 = map2 (\i -> \row -> concat_to r row (replicate n f32.inf with [i] = 0)) (iota n) costs
-  in  murty augmented_costs k
+  let augemented_row_asgns = murty augmented_costs k
+  in map (map (\r_a -> if r_a >= m then -1 else r_a)) augemented_row_asgns
