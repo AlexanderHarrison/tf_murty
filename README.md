@@ -6,7 +6,6 @@ Usage requires python, tensorflow, numpy, etc.
 Nvidia GPU not required (contains cpu backup).
 
 ## TODO:
-- Fix disgusting generation of output tensorflow shape 
 - Optimizations
     - Switch to augmenting deassigned row rather than raw jv each murty step.
     - Sorting each murty step is unnecessary
