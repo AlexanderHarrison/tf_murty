@@ -43,13 +43,6 @@ let augment_row [n][m]
 (row_asgn: *[n]i64) 
 (row: i64) 
 : (*[m]f32, *[m]i64, *[n]i64) = -- returns (row dual, col_asgn, row_asgn)
-  let err = map (\row -> map2 (-) row row_dual) costs
-    |> map2 (\r_a -> \row -> r_a == -1 || let (_, c) = minidx row in c == r_a) row_asgn 
-    |> any not
-
-  let _ = if err then 
-    trace costs else costs
-
   let dist_to_col = map2 (-) costs[row] row_dual
   let pathback = replicate m row
   
@@ -114,8 +107,13 @@ let jv [n][m] (costs: [n][m]f32) : ([n]i64, [m]f32) =
       in (row_dual, row_asgn, col_asgn)
   in (row_asgn, row_dual)
 
+-- rows may be unassigned
 let score [n][m] (costs: [n][m]f32) (row_asgn: [n]i64) : f32 =
   map2 (\j -> \row -> if j == -1 then 0.0 else row[j]) row_asgn costs |> f32.sum
+
+-- all rows are assigned
+let aug_score [n][m] (costs: [n][m]f32) (row_asgn: [n]i64) : f32 =
+  map2 (\j -> \row -> row[j]) row_asgn costs |> f32.sum
 
 let gen_murty_costs [n][m] (costs: [n][m]f32) (row_asgn: [n]i64) : *[n][n][m]f32 =
   map (\i -> map3
@@ -127,7 +125,7 @@ let gen_murty_costs [n][m] (costs: [n][m]f32) (row_asgn: [n]i64) : *[n][n][m]f32
     ) (iota n) row_asgn costs
     ) (iota n)
 
-let murty [n][m] (costs: [n][m]f32) (k: i64) : [k][n]i64 =
+let murty [n][m] (costs: [n][m]f32) (k: i64) : ([k][n]i64, [k]f32) =
   let (least_row_asgn, row_dual) = jv costs
 
   let filler = replicate (k-1) (
@@ -140,7 +138,7 @@ let murty [n][m] (costs: [n][m]f32) (k: i64) : [k][n]i64 =
     concat_to k [(row_dual, costs, least_row_asgn)] filler
     |> unzip3
 
-  let (_, _, least_row_asgns) = loop (least_row_duals, least_costs, least_row_asgns) for i < (k-1) do
+  let (_, least_costs, least_row_asgns) = loop (least_row_duals, least_costs, least_row_asgns) for i < (k-1) do
     let least_row_dual = least_row_duals[i]
     let least_cost = least_costs[i]
     let least_row_asgn = least_row_asgns[i]
@@ -151,14 +149,15 @@ let murty [n][m] (costs: [n][m]f32) (k: i64) : [k][n]i64 =
     let new_data = zip3 new_row_duals new_costs new_row_asgns
     let to_sort = (zip3 least_row_duals least_costs least_row_asgns) ++ new_data
     let (least_row_duals, least_costs, least_row_asgns) = 
-      radix_sort_float_by_key (\(_, c, r) -> score c r) f32.num_bits f32.get_bit to_sort
+      radix_sort_float_by_key (\(_, c, r) -> aug_score c r) f32.num_bits f32.get_bit to_sort
       |> take k |> unzip3
 
     in (least_row_duals, least_costs, least_row_asgns)
-  in least_row_asgns
+  in (least_row_asgns, map2 aug_score least_costs least_row_asgns)
 
-entry main [n][m] (costs: [n][m]f32) (k: i64) : [k][n]i64 = 
+entry main [n][m] (costs: [n][m]f32) (k: i64) : ([k][n]i64, [k]f32) = 
   let r = n+m
   let augmented_costs: [n][r]f32 = map2 (\i -> \row -> concat_to r row (replicate n f32.inf with [i] = 0)) (iota n) costs
-  let augemented_row_asgns = murty augmented_costs k
-  in map (map (\r_a -> if r_a >= m then -1 else r_a)) augemented_row_asgns
+  let (augmented_row_asgns, least_costs) = murty augmented_costs k
+  let row_asgns = map (map (\r_a -> if r_a >= m then -1 else r_a)) augmented_row_asgns
+  in (row_asgns, least_costs)
