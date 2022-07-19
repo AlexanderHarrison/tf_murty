@@ -59,8 +59,8 @@ struct MurtyFunctor<Eigen::GpuDevice> {
           int64_t* out_asgns, 
           float* out_costs
   ) {
-    auto cfg = gpu_futhark_context_config_new();
-    auto ctx = gpu_futhark_context_new(cfg);
+    static auto cfg = gpu_futhark_context_config_new();
+    static auto ctx = gpu_futhark_context_new(cfg);
     struct gpu_futhark_f32_2d* cost_mat = gpu_futhark_new_f32_2d(ctx, in, m, n); 
     struct gpu_futhark_i64_2d* least_asgns = gpu_futhark_new_i64_2d(ctx, out_asgns, m, k); 
     struct gpu_futhark_f32_1d* least_costs = gpu_futhark_new_f32_1d(ctx, out_costs, k); 
@@ -74,9 +74,6 @@ struct MurtyFunctor<Eigen::GpuDevice> {
     gpu_futhark_free_f32_2d(ctx, cost_mat);
     gpu_futhark_free_i64_2d(ctx, least_asgns);
     gpu_futhark_free_f32_1d(ctx, least_costs);
-
-    gpu_futhark_context_free(ctx);
-    gpu_futhark_context_config_free(cfg);
   }
 };
 
