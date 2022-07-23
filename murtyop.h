@@ -9,7 +9,15 @@ namespace functor {
 
 template <typename Device>
 struct MurtyFunctor {
-  void operator()(const Device& d, int64_t k, int64_t n, int64_t m, const float* in, float* out);
+  void operator()(
+          const Device& d,
+          const int64_t k,
+          const int64_t n,
+          const int64_t m,
+          double* in,
+          int* out_asgns, 
+          double* out_costs
+  );
 };
 
 }

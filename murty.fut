@@ -1,13 +1,13 @@
 import "radix_sort"
 
-let mn (m1:f32,i1:i64) (m2:f32,i2:i64) : (f32,i64) =
+let mn (m1:f64,i1:i64) (m2:f64,i2:i64) : (f64,i64) =
   if m1 < m2 then (m1,i1) else (m2,i2)
 
-let minidx [n] (xs: [n]f32) : (f32,i64) =
-  reduce mn (f32.inf,-1) (zip xs (indices xs))
+let minidx [n] (xs: [n]f64) : (f64,i64) =
+  reduce mn (f64.inf,-1) (zip xs (indices xs))
 
-let row_reduce [n][m] (costs: [n][m]f32) : (*[n]f32, *[m]i64) =
-  let (mins, mins_idx): (*[n]f32, *[n]i64) = costs |> map minidx |> unzip 
+let row_reduce [n][m] (costs: [n][m]f64) : (*[n]f64, *[m]i64) =
+  let (mins, mins_idx): (*[n]f64, *[n]i64) = costs |> map minidx |> unzip 
   let is_min = (iota m) |> map (\i -> map (==i) mins_idx) 
   let below_threshold = map (map (<=0.0)) costs |> transpose
   let possible_asgn = map2 (map2 (&&)) is_min below_threshold
@@ -20,12 +20,12 @@ let row_reduce [n][m] (costs: [n][m]f32) : (*[n]f32, *[m]i64) =
   in (copy mins, copy col_asgn)
 
 -- does not assign
-let col_reduce [n][m] (costs: [n][m]f32) (col_dual: [n]f32) : (*[m]f32) =
-  map (\col -> map2 (-) col col_dual |> f32.minimum) (transpose costs)
+let col_reduce [n][m] (costs: [n][m]f64) (col_dual: [n]f64) : (*[m]f64) =
+  map (\col -> map2 (-) col col_dual |> f64.minimum) (transpose costs)
  
 -- does not assign
-let col_dual_by_reduce [n][m] (costs: [n][m]f32) (row_dual: [m]f32) : (*[n]f32) =
-  map (\row -> map2 (-) row row_dual |> f32.minimum) costs
+let col_dual_by_reduce [n][m] (costs: [n][m]f64) (row_dual: [m]f64) : (*[n]f64) =
+  map (\row -> map2 (-) row row_dual |> f64.minimum) costs
 
 let other_asgn [n][m] (asgn: [n]i64) : *[m]i64 =
   scatter (replicate m (-1)) asgn (indices asgn)
@@ -37,19 +37,19 @@ let filter_by [n] 'a 'b (f: b -> bool) (filterer: [n]b) (to_filter: [n]a) : []a 
   zip to_filter filterer |> filter (\(_,b) -> f(b)) |> map (\(a,_) -> a)
 
 let augment_row [n][m]
-(costs: [n][m]f32) 
-(row_dual: *[m]f32) 
+(costs: [n][m]f64) 
+(row_dual: *[m]f64) 
 (col_asgn: *[m]i64) 
 (row_asgn: *[n]i64) 
 (row: i64) 
-: (*[m]f32, *[m]i64, *[n]i64) = -- returns (row dual, col_asgn, row_asgn)
+: (*[m]f64, *[m]i64, *[n]i64) = -- returns (row dual, col_asgn, row_asgn)
   let dist_to_col = map2 (-) costs[row] row_dual
   let pathback = replicate m row
   
   let (shortest_path, col) = minidx dist_to_col
   let unused_cols = replicate m true
 
-  let minmissval = f32.inf
+  let minmissval = f64.inf
   let minmissi = row
   let i = row
   let counter = 0
@@ -74,7 +74,7 @@ let augment_row [n][m]
       let dist_to_col = scatter dist_to_col d_js new_dists
 
       let (shortest_path, col) = minidx (
-        (map2 (\un -> \d -> if un then d else f32.inf) unused_cols dist_to_col))
+        (map2 (\un -> \d -> if un then d else f64.inf) unused_cols dist_to_col))
   
       in (counter+1,pathback, dist_to_col, shortest_path, unused_cols, col, minmissval, minmissi, row_dual, i)
 
@@ -97,7 +97,7 @@ let augment_row [n][m]
 
   in (row_dual, col_asgn, row_asgn)
 
-let jv [n][m] (costs: [n][m]f32) : ([n]i64, [m]f32) =
+let jv [n][m] (costs: [n][m]f64) : ([n]i64, [m]f64) =
   let (_col_dual, col_asgn) = row_reduce costs 
   let row_asgn = other_asgn col_asgn
   let row_dual = replicate m 0.0 -- maybe?
@@ -108,29 +108,29 @@ let jv [n][m] (costs: [n][m]f32) : ([n]i64, [m]f32) =
   in (row_asgn, row_dual)
 
 -- rows may be unassigned
-let score [n][m] (costs: [n][m]f32) (row_asgn: [n]i64) : f32 =
-  map2 (\j -> \row -> if j == -1 then 0.0 else row[j]) row_asgn costs |> f32.sum
+let score [n][m] (costs: [n][m]f64) (row_asgn: [n]i64) : f64 =
+  map2 (\j -> \row -> if j == -1 then 0.0 else row[j]) row_asgn costs |> f64.sum
 
 -- all rows are assigned
-let aug_score [n][m] (costs: [n][m]f32) (row_asgn: [n]i64) : f32 =
-  map2 (\j -> \row -> row[j]) row_asgn costs |> f32.sum
+let aug_score [n][m] (costs: [n][m]f64) (row_asgn: [n]i64) : f64 =
+  map2 (\j -> \row -> row[j]) row_asgn costs |> f64.sum
 
-let gen_murty_costs [n][m] (costs: [n][m]f32) (row_asgn: [n]i64) : *[n][n][m]f32 =
+let gen_murty_costs [n][m] (costs: [n][m]f64) (row_asgn: [n]i64) : *[n][n][m]f64 =
   map (\i -> map3
     (
       \i2 -> \asgn -> \row -> if i2 < i 
-        then map2 (\j -> \ele -> if j==asgn then ele else f32.inf) (iota m) row
-        else if i == i2 then copy row with [asgn] = f32.inf
+        then map2 (\j -> \ele -> if j==asgn then ele else f64.inf) (iota m) row
+        else if i == i2 then copy row with [asgn] = f64.inf
         else row
     ) (iota n) row_asgn costs
     ) (iota n)
 
-let murty [n][m] (costs: [n][m]f32) (k: i64) : ([k][n]i64, [k]f32) =
+let murty [n][m] (costs: [n][m]f64) (k: i64) : ([k][n]i64, [k]f64) =
   let (least_row_asgn, row_dual) = jv costs
 
   let filler = replicate (k-1) (
     replicate m 0.0, -- row duals
-    replicate n (replicate m f32.inf), -- costs
+    replicate n (replicate m f64.inf), -- costs
     iota n -- asgns
   )
 
@@ -143,21 +143,22 @@ let murty [n][m] (costs: [n][m]f32) (k: i64) : ([k][n]i64, [k]f32) =
     let least_cost = least_costs[i]
     let least_row_asgn = least_row_asgns[i]
     let new_costs = gen_murty_costs least_cost least_row_asgn
-      |> filter (all (\r -> !(all (==f32.inf) r)))
+      |> filter (all (\r -> !(all (==f64.inf) r)))
 
     let (new_row_asgns, new_row_duals) = map jv new_costs |> unzip
     let new_data = zip3 new_row_duals new_costs new_row_asgns
     let to_sort = (zip3 least_row_duals least_costs least_row_asgns) ++ new_data
     let (least_row_duals, least_costs, least_row_asgns) = 
-      radix_sort_float_by_key (\(_, c, r) -> aug_score c r) f32.num_bits f32.get_bit to_sort
+      radix_sort_float_by_key (\(_, c, r) -> aug_score c r) f64.num_bits f64.get_bit to_sort
       |> take k |> unzip3
 
     in (least_row_duals, least_costs, least_row_asgns)
   in (least_row_asgns, map2 aug_score least_costs least_row_asgns)
 
-entry main [n][m] (costs: [n][m]f32) (k: i64) : ([k][n]i64, [k]f32) = 
+entry main [n][m] (costs: [n][m]f64) (k: i64) : ([k][n]i32, [k]f64) = 
   let r = n+m
-  let augmented_costs: [n][r]f32 = map2 (\i -> \row -> concat_to r row (replicate n f32.inf with [i] = 0)) (iota n) costs
+  let augmented_costs: [n][r]f64 = map2 (\i -> \row -> concat_to r row (replicate n f64.inf with [i] = 0)) (iota n) costs
   let (augmented_row_asgns, least_costs) = murty augmented_costs k
   let row_asgns = map (map (\r_a -> if r_a >= m then -1 else r_a)) augmented_row_asgns
+    |> map (map i32.i64)
   in (row_asgns, least_costs)
