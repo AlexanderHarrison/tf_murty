@@ -21,7 +21,7 @@ if [ "$1" != "skip_fut" ]; then
 fi
 
 cd fastmurty
-make
+gcc -D NDEBUG -c -O2 -fPIC subproblem.c queue.c sspDense.c sspSparse.c murtysplitDense.c murtysplitSparse.c da.c
 cd ..
 
 rm libmurtyop.so
