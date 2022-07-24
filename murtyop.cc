@@ -39,20 +39,13 @@ struct MurtyFunctor<Eigen::ThreadPoolDevice> {
             return arr;
         }();
 
-        double prior_weights = 0;
+        static double prior_weights = 0;
 
         out_assocs.resize(k * (m + n) * 2);
-        for (int i = 0; i < k * (m + n) * 2; ++i)
-            out_assocs[i] = 0;
-
-        //for (int i = 0; i < k; ++i)
-        //    out_costs[i] = 0;
 
         bool error = da(in, 1, priors, &prior_weights,
                         1, priors, &prior_weights, k,
                         &out_assocs[0], out_costs, &workvars);
-
-        //FILE* f = fopen("out.txt", "w+");
 
         // Fastmurty has the most obnoxious return format that I have ever seen.
         // 
@@ -89,8 +82,8 @@ struct MurtyFunctor<Eigen::ThreadPoolDevice> {
         // I would fork this myself if I had the time.
         //
         // Why did they do it this way? I have no clue.
-        // Just alloc two buffers for the indices like I explained,
-        // and update assigned indices as necessary. It's so simple.
+        // Just alloc two buffers for the row and column assignment indices,
+        // and update as necessary. It's so simple.
         // They would be fixed length, with no redundant data, easier to parse, 
         // easier to transform, and half the size than what they did here.
         //
@@ -99,11 +92,6 @@ struct MurtyFunctor<Eigen::ThreadPoolDevice> {
             int out_assocs_idx = solution_idx * (n+m) * 2;
             int *association = &out_assocs[out_assocs_idx];
             
-            //for (int j=0; j<association_len;++j) {
-            //    fprintf(f, "%d, ", association[j]);
-            //}
-            //fprintf(f, "\n");
-
             int rows_to_asgn = m;
             for (int i = 0; rows_to_asgn != 0; i+=2) {
                 int row = association[i];
@@ -115,9 +103,6 @@ struct MurtyFunctor<Eigen::ThreadPoolDevice> {
                 }
             }
         }
-        //fclose(f);
-	//delete[] priors;
-        //deallocateWorkvarsforDA(workvars);
     }
 };
 
