@@ -18,12 +18,18 @@ namespace tensorflow {
 
 namespace functor {
 
-template <> struct MurtyFunctor<Eigen::ThreadPoolDevice> {
+template <> 
+struct MurtyFunctor<Eigen::ThreadPoolDevice> {
     void operator()(const Eigen::ThreadPoolDevice &d, const int64_t k,
                     const int64_t n, const int64_t m, double *in,
                     int *out_asgns, double *out_costs) {
-        thread_local WorkvarsforDA workvars =
+	thread_local WorkvarsforDA workvars =
             allocateWorkvarsforDA(m, n, k);
+	if (workvars.m != m || workvars.n != n) {
+            deallocateWorkvarsforDA(workvars);
+	    workvars = allocateWorkvarsforDA(m, n, k);
+	}
+
         thread_local std::vector<int> out_assocs {};
 
         static bool* priors = [](){
@@ -33,7 +39,7 @@ template <> struct MurtyFunctor<Eigen::ThreadPoolDevice> {
             return arr;
         }();
 
-        static double prior_weights = 0;
+        double prior_weights = 0;
 
         out_assocs.resize(k * (m + n) * 2);
         for (int i = 0; i < k * (m + n) * 2; ++i)
@@ -110,6 +116,8 @@ template <> struct MurtyFunctor<Eigen::ThreadPoolDevice> {
             }
         }
         //fclose(f);
+	//delete[] priors;
+        //deallocateWorkvarsforDA(workvars);
     }
 };
 
