@@ -3,7 +3,7 @@
 #include <tensorflow/core/framework/shape_inference.h>
 #include "unsupported/Eigen/CXX11/src/Tensor/TensorForwardDeclarations.h"
 
-#include "murtygpu.h"
+#include "murty.h"
 #include "murtyop.h"
 
 extern "C" {
@@ -110,24 +110,24 @@ template <> struct MurtyFunctor<Eigen::GpuDevice> {
     void operator()(const Eigen::GpuDevice &d, const int64_t k, const int64_t n,
                     const int64_t m, const double *in, int *out_asgns,
                     double *out_costs) {
-        static auto cfg = gpu_futhark_context_config_new();
-        static auto ctx = gpu_futhark_context_new(cfg);
-        struct gpu_futhark_f64_2d *cost_mat =
-            gpu_futhark_new_f64_2d(ctx, in, m, n);
-        struct gpu_futhark_i32_2d *least_asgns =
-            gpu_futhark_new_i32_2d(ctx, out_asgns, m, k);
-        struct gpu_futhark_f64_1d *least_costs =
-            gpu_futhark_new_f64_1d(ctx, out_costs, k);
+        static auto cfg = futhark_context_config_new();
+        static auto ctx = futhark_context_new(cfg);
+        struct futhark_f64_2d *cost_mat =
+            futhark_new_f64_2d(ctx, in, m, n);
+        struct futhark_i32_2d *least_asgns =
+            futhark_new_i32_2d(ctx, out_asgns, m, k);
+        struct futhark_f64_1d *least_costs =
+            futhark_new_f64_1d(ctx, out_costs, k);
 
-        gpu_futhark_entry_main(ctx, &least_asgns, &least_costs, cost_mat, k);
-        gpu_futhark_context_sync(ctx);
+        futhark_entry_main(ctx, &least_asgns, &least_costs, cost_mat, k);
+        futhark_context_sync(ctx);
 
-        gpu_futhark_values_i32_2d(ctx, least_asgns, out_asgns);
-        gpu_futhark_values_f64_1d(ctx, least_costs, out_costs);
+        futhark_values_i32_2d(ctx, least_asgns, out_asgns);
+        futhark_values_f64_1d(ctx, least_costs, out_costs);
 
-        gpu_futhark_free_f64_2d(ctx, cost_mat);
-        gpu_futhark_free_i32_2d(ctx, least_asgns);
-        gpu_futhark_free_f64_1d(ctx, least_costs);
+        futhark_free_f64_2d(ctx, cost_mat);
+        futhark_free_i32_2d(ctx, least_asgns);
+        futhark_free_f64_1d(ctx, least_costs);
     }
 };
 
