@@ -3,7 +3,10 @@
 #include <tensorflow/core/framework/shape_inference.h>
 #include "unsupported/Eigen/CXX11/src/Tensor/TensorForwardDeclarations.h"
 
+#ifdef GPU
 #include "murty.h"
+#endif
+
 #include "murtyop.h"
 
 extern "C" {
@@ -30,8 +33,6 @@ struct MurtyFunctor<Eigen::ThreadPoolDevice> {
 	    workvars = allocateWorkvarsforDA(m, n, k);
 	}
 
-        thread_local std::vector<int> out_assocs {};
-
         static bool* priors = [](){
             bool* arr = new bool[256];
             for (int i = 0; i < 256; ++i)
@@ -41,71 +42,13 @@ struct MurtyFunctor<Eigen::ThreadPoolDevice> {
 
         static double prior_weights = 0;
 
-        out_assocs.resize(k * (m + n) * 2);
-
-        bool error = da(in, 1, priors, &prior_weights,
-                        1, priors, &prior_weights, k,
-                        &out_assocs[0], out_costs, &workvars);
-
-        // Fastmurty has the most obnoxious return format that I have ever seen.
-        // 
-        // <rant>
-        //
-        // Normally you'd expect the assignments to be returned in two parts - the row assignments,
-        // and the column assignments. Both lists of indices into the passed costs.
-        // Or just one of them is returned, and has the user calculate the other if needed.
-        // That's what I did with the GPU implementation - just return the row assignments.
-        //
-        // For some reason the author decided that returning both
-        // the row assignments and columns assignments IN A SINGLE ARRAY was a good idea.
-        // I have no idea how they came to this conclusion, but fine.
-        // That's weird, but fine. Reduce an allocation, only one return ptr, there's reasons.
-        // But that's not all. They don't return row indices and then column indices like any
-        // reasonable person, they return them MIXED, in (row, col) pairs.
-        // This means the array is twice the size than straight row assignment indices.
-        // So I have to alloc a 2x array just for you, you special snowflake.
-        // And this buffer is written to, so it isn't thread safe, 
-        // so I need a while new buffer for each thread, which tensorflow uses many of.
-        // I also need a buffer containing only 1s for each row and column.
-        // That is RO and can be static, but still, really?
-        // 
-        // But that's not all. Since returning assignment pairs necessarily has a dynamic length,
-        // and the author returns a fixed length (n+m)*2*k buffer,
-        // a portion of the returned pairs are zeroed.
-        // This means there are a bunch of redundant (0, 0) pairs sitting at the end, waiting for a
-        // helpless dev to assign row 0 to index 0.
-        // They didn't even have the tact to return redundant (-1, -1) pairs, no,
-        // that would have been too logical.
-        //
-        // And of course none of this is documented.
-        // I had to figure this out through trial and error and the source code of a fork.
-        // I would fork this myself if I had the time.
-        //
-        // Why did they do it this way? I have no clue.
-        // Just alloc two buffers for the row and column assignment indices,
-        // and update as necessary. It's so simple.
-        // They would be fixed length, with no redundant data, easier to parse, 
-        // easier to transform, and half the size than what they did here.
-        //
-        // </rant>
-        for (int solution_idx = 0; solution_idx < k; ++solution_idx) {
-            int out_assocs_idx = solution_idx * (n+m) * 2;
-            int *association = &out_assocs[out_assocs_idx];
-            
-            int rows_to_asgn = m;
-            for (int i = 0; rows_to_asgn != 0; i+=2) {
-                int row = association[i];
-                int row_asgn = association[i+1];
-
-                if (row != -1) {
-                    out_asgns[solution_idx*m + row] = row_asgn;
-                    rows_to_asgn -= 1;
-                }
-            }
-        }
+        da(in, 1, priors, &prior_weights,
+            1, priors, &prior_weights, k,
+            out_asgns, out_costs, &workvars);
     }
 };
 
+#ifdef GPU 
 template <> struct MurtyFunctor<Eigen::GpuDevice> {
     void operator()(const Eigen::GpuDevice &d, const int64_t k, const int64_t n,
                     const int64_t m, const double *in, int *out_asgns,
@@ -130,6 +73,7 @@ template <> struct MurtyFunctor<Eigen::GpuDevice> {
         futhark_free_f64_1d(ctx, least_costs);
     }
 };
+#endif
 
 template <typename Device> class MurtyOp : public OpKernel {
   public:
@@ -167,8 +111,10 @@ template <typename Device> class MurtyOp : public OpKernel {
 
 REGISTER_KERNEL_BUILDER(Name("Murty").Device(DEVICE_CPU),
                         MurtyOp<Eigen::ThreadPoolDevice>);
+#ifdef GPU
 REGISTER_KERNEL_BUILDER(Name("Murty").Device(DEVICE_GPU).HostMemory("k"),
                         MurtyOp<Eigen::GpuDevice>);
+#endif
 } // namespace functor
 } // namespace tensorflow
 
